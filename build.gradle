@@ -1,0 +1,136 @@
+/*
+ * Amalgamation
+ * Copyright (C) 2021 Astrarre
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+plugins {
+    id 'java'
+    id 'idea'
+    id 'maven-publish'
+    id 'amalgamation-minecraft' version "1.0.0"
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url 'https://maven.fabricmc.net/' }
+    maven { url 'https://files.minecraftforge.net/maven/' }
+    maven {
+        name = "HalfOf2"
+        url = uri("https://storage.googleapis.com/devan-maven/")
+    }
+}
+
+sourceCompatibility = JavaVersion.VERSION_16
+targetCompatibility = JavaVersion.VERSION_16
+
+def mc_vers = "1.17.1"
+def mergedMappings = dependencies.create('net.fabricmc:yarn:1.17.1+build.61:mergedv2')
+
+configurations {
+    aaaaa {
+    }
+    implementation.extendsFrom(aaaaa)
+}
+
+dependencies {
+    //aaaaa ag.mojmerged(mc_vers)
+    def intermediaryMinecraft = ag.map {
+        mappings(mergedMappings, 'official', 'intermediary')
+        remap(ag.mojmerged(mc_vers, true), true)
+    }
+
+    aaaaa ag.map {
+        mappings(mergedMappings, 'intermediary', 'named')
+        remap(intermediaryMinecraft, true)
+        /*remap("net.fabricmc.fabric-api:fabric-api:0.40.1+1.17", false) {
+            exclude module: 'fabric-loader'
+        }*/
+    }
+
+    aaaaa ag.fabricLoader("0.11.7")
+    aaaaa ag.libraries(mc_vers)
+    annotationProcessor("net.fabricmc:fabric-mixin-compile-extensions:0.4.3")
+}
+
+configurations {
+    annotationProcessor {
+        extendsFrom implementation
+    }
+}
+
+task unzip(type: Copy) {
+    inputs.files(ag.resolve([mergedMappings]))
+    from provider {
+        zipTree(ag.resolve([mergedMappings]).get().first())
+    }
+    into "$buildDir/unzip/"
+}
+
+compileJava {
+    def compilerArgs = options.compilerArgs
+    compilerArgs.add("-AinMapFileNamedIntermediary=$buildDir/unzip/mappings/mappings.tiny" as String)
+    compilerArgs.add("-AoutMapFileNamedIntermediary=$buildDir/test.tiny" as String)
+    // I have no idea what this does btw
+    compilerArgs.add("-AoutRefMapFile=${destinationDirectory.get().asFile}/test-refmap.json" as String)
+    compilerArgs.add("-AdefaultObfuscationEnv=named:intermediary" as String)
+    dependsOn tasks.unzip
+}
+
+import io.github.astrarre.amalgamation.gradle.tasks.RemapJar
+
+task outputJar(type: RemapJar) {
+    from jar
+}
+
+task testDiff(type: JavaExec) {
+    group = "tests"
+    description = "Test Diff:tm:"
+    classpath sourceSets.main.runtimeClasspath
+    main = "net.fabricmc.loader.launch.knot.KnotClient"
+    def natives = ag.natives(mc_vers)
+    systemProperty("fabric.development", true)
+    systemProperty("fabric.gameVersion", mc_vers)
+    systemProperty("java.library.globalCache", natives)
+    systemProperty("org.lwjgl.librarypath", natives)
+    def assets = ag.assets(mc_vers)
+    args("--assetIndex", assets.assetIndex, "--assetsDir", assets.assetsDir)
+    workingDir("$rootDir/run")
+    dependsOn tasks.classes
+}
+
+ide.ideaJava(testDiff) {}
+
+/*
+task stripFabric_1_16(type: StripJar) {
+    with jar
+    archivesBaseName = 'fabric-1.16-dev'
+    platform(['fabric', '1.16'])
+}
+
+task fabric_1_16(type: RemapJar) {
+    with stripFabric_1_16
+    archivesBaseName = 'fabric-1.16'
+    classpath = configurations.compileClasspath
+    mappings = amalgamation.createMappings(MappingTarget.INTERMEDIARY, '1.16')
+}*/
+
+task loadMcEnv {
+    doLast {
+        //Thread.sleep(10_000)
+        println(configurations.aaaaa.resolve())
+    }
+}
