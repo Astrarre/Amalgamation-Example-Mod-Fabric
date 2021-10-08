@@ -20,7 +20,7 @@ plugins {
     id 'java'
     id 'idea'
     id 'maven-publish'
-    id 'amalgamation-minecraft' version "1.0.0"
+    id 'amalgamation-minecraft' version "2.1.0"
 }
 
 repositories {
@@ -40,20 +40,13 @@ targetCompatibility = JavaVersion.VERSION_16
 def mc_vers = "1.17.1"
 def mergedMappings = dependencies.create('net.fabricmc:yarn:1.17.1+build.61:mergedv2')
 
-configurations {
-    aaaaa {
-    }
-    implementation.extendsFrom(aaaaa)
-}
-
 dependencies {
-    //aaaaa ag.mojmerged(mc_vers)
     def intermediaryMinecraft = ag.map {
         mappings(mergedMappings, 'official', 'intermediary')
         remap(ag.mojmerged(mc_vers, true), true)
     }
 
-    aaaaa ag.map {
+    implementation ag.map {
         mappings(mergedMappings, 'intermediary', 'named')
         remap(intermediaryMinecraft, true)
         /*remap("net.fabricmc.fabric-api:fabric-api:0.40.1+1.17", false) {
@@ -61,8 +54,8 @@ dependencies {
         }*/
     }
 
-    aaaaa ag.fabricLoader("0.11.7")
-    aaaaa ag.libraries(mc_vers)
+    implementation ag.fabricLoader("0.11.7")
+    implementation ag.libraries(mc_vers)
     annotationProcessor("net.fabricmc:fabric-mixin-compile-extensions:0.4.3")
 }
 
@@ -91,7 +84,6 @@ compileJava {
 }
 
 import io.github.astrarre.amalgamation.gradle.tasks.RemapJar
-
 task outputJar(type: RemapJar) {
     from jar
 }
@@ -112,25 +104,4 @@ task testDiff(type: JavaExec) {
     dependsOn tasks.classes
 }
 
-ide.ideaJava(testDiff) {}
-
-/*
-task stripFabric_1_16(type: StripJar) {
-    with jar
-    archivesBaseName = 'fabric-1.16-dev'
-    platform(['fabric', '1.16'])
-}
-
-task fabric_1_16(type: RemapJar) {
-    with stripFabric_1_16
-    archivesBaseName = 'fabric-1.16'
-    classpath = configurations.compileClasspath
-    mappings = amalgamation.createMappings(MappingTarget.INTERMEDIARY, '1.16')
-}*/
-
-task loadMcEnv {
-    doLast {
-        //Thread.sleep(10_000)
-        println(configurations.aaaaa.resolve())
-    }
-}
+// WIP: ide.ideaJava(testDiff) {}
